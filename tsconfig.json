@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",                         // Good for modern JS features
+    "module": "NodeNext",                       // Required for ESM support
+    "strict": true,                             // Enables all strict type-checking options
+    "allowImportingTsExtensions": true,         // Lets you import `.ts`/`.tsx` directly
+    "noEmit": true,                             // Don’t emit JS (for type-check only projects)
+    "verbatimModuleSyntax": true,               // Keeps import/export syntax as-is
+    "skipLibCheck": true,                       // Skips type checking of node_modules
+    "types": ["node", "jest"],                  // Load global types for Node and Jest
+    "jsx": "react-jsx",                         // JSX runtime for Hono or React
+    "jsxImportSource": "hono/jsx"               // Needed for Hono's JSX runtime
+  },
+  "include": ["src", "types", "test"],          // Adjust based on your project structure
+  "exclude": ["node_modules", "dist"]
+}
