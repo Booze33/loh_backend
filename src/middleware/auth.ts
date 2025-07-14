@@ -1,7 +1,9 @@
 import type { Context, Next, MiddlewareHandler } from 'hono';
-import jwt, { TokenExpiredError, JsonWebTokenError } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import type { DecodedToken } from '../types/auth/authTypes.ts';
+
+const { TokenExpiredError, JsonWebTokenError } = jwt;
 
 const prisma = new PrismaClient();
 

@@ -1,6 +1,5 @@
 generator client {
     provider = "prisma-client-js"
-    output   = "../generated/prisma"
   }
   
   datasource db {
@@ -21,7 +20,7 @@ generator client {
     tokens                 OAuthToken[]
     createdAt              DateTime  @default(now()) @map("created_at")
     updatedAt              DateTime  @updatedAt @map("updated_at")
-    picture                String?
+    avatar                String?
     chatSessions           ChatSession[]
   
     @@map("users")
