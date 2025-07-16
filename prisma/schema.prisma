@@ -1,56 +1,65 @@
 generator client {
-    provider = "prisma-client-js"
-  }
-  
-  datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
-  }
-  
-  model User {
-    id                     String    @id @default(uuid())
-    email                  String    @unique
-    name                   String
-    resetToken             String?
-    resetTokenExpiry       DateTime?
-    isEmailVerified        Boolean   @default(false)
-    verificationCode       String?
-    verificationCodeExpiry DateTime?
-    password               String
-    tokens                 OAuthToken[]
-    createdAt              DateTime  @default(now()) @map("created_at")
-    updatedAt              DateTime  @updatedAt @map("updated_at")
-    avatar                String?
-    chatSessions           ChatSession[]
-  
-    @@map("users")
-  }
-  
-  model ChatSession {
-    id        String     @id @default(uuid())
-    userId    String
-    user      User       @relation(fields: [userId], references: [id])
-    messages  ChatMessage[]
-    createdAt DateTime   @default(now())
-  }
-  
-  model ChatMessage {
-    id         String   @id @default(uuid())
-    sessionId  String
-    sender     String   // 'user' or 'assistant'
-    content    String
-    timestamp  DateTime @default(now())
-    session    ChatSession @relation(fields: [sessionId], references: [id])
-  }
-  
-  model OAuthToken {
-    id          String   @id @default(uuid())
-    userId      String
-    provider    String   // 'google', 'slack', etc.
-    accessToken String
-    refreshToken String?
-    expiresAt   DateTime?
-    user        User     @relation(fields: [userId], references: [id])
-  }
-  
-  
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                     String       @id @default(uuid())
+  email                  String       @unique
+  name                   String
+  resetToken             String?
+  resetTokenExpiry       DateTime?
+  isEmailVerified        Boolean      @default(false)
+  verificationCode       String?
+  verificationCodeExpiry DateTime?
+  password               String?      // Made nullable for Google OAuth users
+  googleId               String?      // Added for Google OAuth
+  avatar                 String?
+  tokens                 OAuthToken[]
+  chatSessions           ChatSession[]
+  createdAt              DateTime     @default(now()) @map("created_at")
+  updatedAt              DateTime     @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model ChatSession {
+  id        String        @id @default(uuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String      @id @default(uuid())
+  sessionId String
+  sender    String      // 'user' or 'assistant'
+  content   String      @db.Text // Use Text for longer messages
+  timestamp DateTime    @default(now())
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
+}
+
+model OAuthToken {
+  id           String    @id @default(uuid())
+  userId       String
+  provider     String    // 'google', 'slack', etc.
+  accessToken  String    @db.Text // Use Text for longer tokens
+  refreshToken String?   @db.Text // Use Text for longer tokens
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider]) // Prevent duplicate tokens for same user/provider
+  @@map("oauth_tokens")
+}
