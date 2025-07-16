@@ -427,6 +427,10 @@ export const login = async (c: Context) => {
       return c.json({ error: "Invalid credentials"}, 400);
     }
 
+    if (!user.password) {
+      return c.json({ error: "Invalid credentials" }, 400);
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return c.json({ error: "Invalid credentials password is wrong. Check authControllers" }, 400);
