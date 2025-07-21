@@ -23,7 +23,9 @@
   "dependencies": {
     "@hono/node-server": "^1.15.0",
     "@prisma/client": "^6.11.1",
+    "@slack/oauth": "^3.0.3",
     "bcrypt": "^6.0.0",
+    "crypto": "^1.0.1",
     "crypto-js": "^4.2.0",
     "dotenv": "^17.2.0",
     "google-auth-library": "^10.1.0",

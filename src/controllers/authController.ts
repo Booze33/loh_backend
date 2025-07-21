@@ -5,12 +5,28 @@ import { PrismaClient } from '@prisma/client';
 import type { Context } from 'hono';
 import nodemailer from "nodemailer";
 import { OAuth2Client } from 'google-auth-library';
-import type { UserData, CreateUserData, SignInUserData, PasswordData } from '../types/auth/authTypes.ts';
+import type { UserData, SignInUserData, PasswordData } from '../types/auth/authTypes.ts';
+import { InstallProvider } from '@slack/oauth';
 
 const googleClient = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET
 );
+
+// const slackInstaller = new InstallProvider({
+//   clientId: process.env.SLACK_CLIENT_ID!,
+//   clientSecret: process.env.SLACK_CLIENT_SECRET!,
+//   stateSecret: process.env.SLACK_STATE_SECRET || 'default-state-secret',
+//   installationStore: {
+//     storeInstallation: async (installation) => {
+//       console.log('Installation stored:', installation.team?.id);
+//     },
+//     fetchInstallation: async (installQuery) => {
+//       console.log('Fetching installation for:', installQuery);
+//       return null;
+//     },
+//   },
+// });
 
 const prisma = new PrismaClient();
 
@@ -454,5 +470,139 @@ export const login = async (c: Context) => {
   } catch (error) {
     console.error("Login error:", error);
     return c.json({ error: "Login failed. Please try again later." }, 500);
+  }
+}
+
+export const slackAuthRedirect = async (c: Context) => {
+  try {
+    const state = crypto.randomBytes(16).toString('hex');
+
+    const params = new URLSearchParams({
+      client_id: process.env.SLACK_CLIENT_ID!,
+      user_scope: 'identity.basic,identity.email,identity.avatar',
+      redirect_uri: process.env.SLACK_REDIRECT_URI!,
+      state,
+    });
+
+    const url = `https://slack.com/oauth/v2/authorize?${params.toString()}`;
+    
+    return c.redirect(url);
+  } catch (error) {
+    console.error('Slack auth redirect error:', error);
+    return c.json({ 
+      error: "Failed to initiate Slack authentication",
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+}
+
+export const slackAuthCallback = async (c: Context) => {
+  try {
+    const { code, state, error: authError } = c.req.query();
+
+    if (authError) {
+      console.error('Slack auth error:', authError);
+      return c.json({ error: 'Slack authentication was denied or failed' }, 400);
+    }
+
+    if (!code) {
+      return c.json({ error: 'Authorization code is required' }, 400);
+    }
+
+    const tokenResponse = await fetch('https://slack.com/api/oauth.v2.access', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: process.env.SLACK_CLIENT_ID!,
+        client_secret: process.env.SLACK_CLIENT_SECRET!,
+        code,
+        redirect_uri: process.env.SLACK_REDIRECT_URI!,
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenData.ok || !tokenData.authed_user?.access_token) {
+      console.error('Token exchange failed:', tokenData);
+      return c.json({ 
+        error: 'Failed to exchange code for token',
+        details: tokenData.error || 'Unknown error'
+      }, 401);
+    }
+
+    const identityResponse = await fetch('https://slack.com/api/users.identity', {
+      headers: {
+        Authorization: `Bearer ${tokenData.authed_user.access_token}`,
+      },
+    });
+
+    const slackUser = await identityResponse.json();
+
+    if (!slackUser.ok || !slackUser.user) {
+      console.error('Identity fetch failed:', slackUser);
+      return c.json({ 
+        error: 'Failed to fetch Slack user info',
+        details: slackUser.error || 'Unknown error'
+      }, 401);
+    }
+
+    const { email, name, id: slackId, image_192: avatar } = slackUser.user;
+
+    if (!email) {
+      return c.json({ error: 'Email not provided by Slack' }, 400);
+    }
+
+    let user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          name: name || 'Slack User',
+          email,
+          slackId,
+          avatar,
+          isEmailVerified: true,
+          password: null,
+        },
+      });
+    } else if (!user.slackId) {
+      user = await prisma.user.update({
+        where: { email },
+        data: {
+          slackId,
+          avatar,
+        },
+      });
+    }
+
+    const token = jwt.sign(
+      { userId: user.id },
+      process.env.JWT_SECRET || 'fallback_secret',
+      { expiresIn: '3h' }
+    );
+
+    return c.json({
+      message: "User authenticated successfully via Slack",
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar
+      },
+    }, 200);
+  } catch (error) {
+    console.error('Slack auth callback error:', error);
+    return c.json(
+      {
+        error: 'Slack authentication failed',
+        details: error instanceof Error ? error.message : String(error),
+      },
+      500
+    );
   }
 }

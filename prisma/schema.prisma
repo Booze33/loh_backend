@@ -16,8 +16,9 @@ model User {
   isEmailVerified        Boolean      @default(false)
   verificationCode       String?
   verificationCodeExpiry DateTime?
-  password               String?      // Made nullable for Google OAuth users
-  googleId               String?      // Added for Google OAuth
+  password               String?
+  googleId               String?
+  slackId                String?
   avatar                 String?
   tokens                 OAuthToken[]
   chatSessions           ChatSession[]
