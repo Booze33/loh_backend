@@ -12,12 +12,14 @@ export const authMiddleware: MiddlewareHandler = async (c: Context, next: Next) 
     const authHeader = c.req.header('Authorization');
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log("Invalid auth header format");
       return c.json({ error: 'No or invalid authentication token format' }, 401);
     }
 
     const token = authHeader.split(' ')[1];
 
     if (!token) {
+      console.log("Token extraction failed");
       return c.json({ error: 'Authentication token is missing' }, 401);
     }
 
@@ -31,6 +33,7 @@ export const authMiddleware: MiddlewareHandler = async (c: Context, next: Next) 
 
     try {
       decoded = jwt.verify(token, jwtSecret) as DecodedToken;
+      console.log("Token decoded successfully:", { userId: decoded.userId });
     } catch (err) {
       if (err instanceof TokenExpiredError) {
         return c.json({ error: 'Authentication token has expired' }, 401);

@@ -13,21 +13,6 @@ const googleClient = new OAuth2Client(
   process.env.GOOGLE_CLIENT_SECRET
 );
 
-// const slackInstaller = new InstallProvider({
-//   clientId: process.env.SLACK_CLIENT_ID!,
-//   clientSecret: process.env.SLACK_CLIENT_SECRET!,
-//   stateSecret: process.env.SLACK_STATE_SECRET || 'default-state-secret',
-//   installationStore: {
-//     storeInstallation: async (installation) => {
-//       console.log('Installation stored:', installation.team?.id);
-//     },
-//     fetchInstallation: async (installQuery) => {
-//       console.log('Fetching installation for:', installQuery);
-//       return null;
-//     },
-//   },
-// });
-
 const prisma = new PrismaClient();
 
 const transporter = nodemailer.createTransport({
