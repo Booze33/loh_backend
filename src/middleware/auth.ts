@@ -49,7 +49,8 @@ export const authMiddleware: MiddlewareHandler = async (c: Context, next: Next) 
       select: {
         id: true,
         name: true,
-        email: true
+        email: true,
+        avatar: true,
       },
     });
 
