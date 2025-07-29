@@ -20,6 +20,8 @@ model User {
   googleId               String?
   slackId                String?
   avatar                 String?
+  preferences            Json?
+  defaultSessionId       String?
   tokens                 OAuthToken[]
   chatSessions           ChatSession[]
   createdAt              DateTime     @default(now()) @map("created_at")
@@ -32,6 +34,9 @@ model ChatSession {
   id        String        @id @default(uuid())
   userId    String
   user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String?
+  isPinned  Boolean       @default(false)
+  summary   String?
   messages  ChatMessage[]
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
@@ -42,8 +47,9 @@ model ChatSession {
 model ChatMessage {
   id        String      @id @default(uuid())
   sessionId String
-  sender    String      // 'user' or 'assistant'
-  content   String      @db.Text // Use Text for longer messages
+  sender    String 
+  content   String      @db.Text
+  metadata  Json? 
   timestamp DateTime    @default(now())
   session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
@@ -53,14 +59,14 @@ model ChatMessage {
 model OAuthToken {
   id           String    @id @default(uuid())
   userId       String
-  provider     String    // 'google', 'slack', etc.
-  accessToken  String    @db.Text // Use Text for longer tokens
-  refreshToken String?   @db.Text // Use Text for longer tokens
+  provider     String
+  accessToken  String    @db.Text
+  refreshToken String?   @db.Text
   expiresAt    DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, provider]) // Prevent duplicate tokens for same user/provider
+  @@unique([userId, provider])
   @@map("oauth_tokens")
 }

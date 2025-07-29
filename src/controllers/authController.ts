@@ -70,8 +70,15 @@ export const register = async (c: Context) => {
         password: passwordHash,
         verificationCode,
         verificationCodeExpiry,
-        isEmailVerified: false
+        isEmailVerified: false,
+        chatSessions: {
+        create: {
+          title: "First Session",
+          isPinned: true
+        }
       }
+      },
+      include: { chatSessions: true }
     });
 
     await sendVerificationEmail(email, verificationCode);
@@ -90,7 +97,8 @@ export const register = async (c: Context) => {
       user: {
         id: user.id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        defaultSessionId: user.chatSessions[0].id
       }
     }, 201);
 
@@ -188,6 +196,9 @@ export const googleRegister = async (c: Context) => {
           avatar: picture,
           isEmailVerified: true,
           password: null,
+          chatSessions: {
+            create: { title: "First Session" }
+          }
         },
       });
     } else if (!user.googleId) {
@@ -421,7 +432,13 @@ export const login = async (c: Context) => {
     }
 
     const user = await prisma.user.findUnique({
-      where: { email }
+      where: { email },
+      include: { 
+        chatSessions: {
+          orderBy: { isPinned: 'desc' },
+          take: 1
+        }
+      }
     });
 
     if (!user) {
@@ -449,7 +466,8 @@ export const login = async (c: Context) => {
       user: {
         id: user.id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        defaultSessionId: user.chatSessions[0]?.id
       }
     }, 200);
   } catch (error) {

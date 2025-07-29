@@ -22,6 +22,9 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.15.0",
+    "@langchain/core": "^0.3.66",
+    "@langchain/openai": "^0.6.3",
+    "@pinecone-database/pinecone": "^6.1.2",
     "@prisma/client": "^6.11.1",
     "@slack/oauth": "^3.0.3",
     "bcrypt": "^6.0.0",
@@ -29,9 +32,12 @@
     "crypto-js": "^4.2.0",
     "dotenv": "^17.2.0",
     "google-auth-library": "^10.1.0",
+    "googleapis": "^154.1.0",
+    "groq-sdk": "^0.29.0",
     "hono": "^4.8.4",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^7.0.5",
+    "openai": "^5.10.2",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "prisma": "^6.11.1"

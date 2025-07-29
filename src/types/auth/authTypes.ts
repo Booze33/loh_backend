@@ -25,3 +25,20 @@ export interface DecodedToken {
   iat: number;
   exp: number;
 }
+
+export interface ChatMessage {
+  id?: string;
+  sessionId: string;
+  sender: 'user' | 'assistant';
+  content: string;
+  metadata?: any;
+  timestamp?: Date;
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  userId: string;
+  isPinned?: boolean;
+  summary?: string;
+}
