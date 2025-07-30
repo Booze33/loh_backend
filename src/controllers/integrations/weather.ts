@@ -1,14 +1,15 @@
-import { Context } from "hono";
+import { Context } from 'hono'
 
-export const getWeatherForcast = async (c: Context) => {
+export const getWeatherForecast = async (c: Context) => {
   try {
-    const { location, days = 3 } = c.req.query();
+    const location = c.req.query('location')
+    const days = c.req.query('days') || '3'
 
     const response = await fetch(
       `https://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_API_KEY}&q=${location}&days=${days}`
-    );
+    )
 
-    const data = await response.json();
+    const data = await response.json()
 
     return c.json({
       location: data.location,
@@ -18,9 +19,9 @@ export const getWeatherForcast = async (c: Context) => {
         minTemp: day.day.mintemp_c,
         condition: day.day.condition.text
       }))
-    });
+    })
   } catch (error) {
-    console.error('Weather error:', error);
-    return c.json({ error: 'Failed to fetch weather data' }, 500);
+    console.error('Weather error:', error)
+    return c.json({ error: 'Failed to fetch weather data' }, 500)
   }
 }

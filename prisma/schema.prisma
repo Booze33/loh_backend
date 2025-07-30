@@ -1,72 +1,105 @@
 generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-model User {
-  id                     String       @id @default(uuid())
-  email                  String       @unique
-  name                   String
-  resetToken             String?
-  resetTokenExpiry       DateTime?
-  isEmailVerified        Boolean      @default(false)
-  verificationCode       String?
-  verificationCodeExpiry DateTime?
-  password               String?
-  googleId               String?
-  slackId                String?
-  avatar                 String?
-  preferences            Json?
-  defaultSessionId       String?
-  tokens                 OAuthToken[]
-  chatSessions           ChatSession[]
-  createdAt              DateTime     @default(now()) @map("created_at")
-  updatedAt              DateTime     @updatedAt @map("updated_at")
-
-  @@map("users")
-}
-
-model ChatSession {
-  id        String        @id @default(uuid())
-  userId    String
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String?
-  isPinned  Boolean       @default(false)
-  summary   String?
-  messages  ChatMessage[]
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-
-  @@map("chat_sessions")
-}
-
-model ChatMessage {
-  id        String      @id @default(uuid())
-  sessionId String
-  sender    String 
-  content   String      @db.Text
-  metadata  Json? 
-  timestamp DateTime    @default(now())
-  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@map("chat_messages")
-}
-
-model OAuthToken {
-  id           String    @id @default(uuid())
-  userId       String
-  provider     String
-  accessToken  String    @db.Text
-  refreshToken String?   @db.Text
-  expiresAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, provider])
-  @@map("oauth_tokens")
-}
+    provider = "prisma-client-js"
+  }
+  
+  datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+  }
+  
+  model User {
+    id                      String                @id @default(uuid())
+    email                   String                @unique
+    name                    String
+    resetToken              String?
+    resetTokenExpiry        DateTime?
+    isEmailVerified         Boolean               @default(false)
+    verificationCode        String?
+    verificationCodeExpiry  DateTime?
+    password                String?
+    googleId                String?
+    slackId                 String?
+    avatar                  String?
+    preferences             Json?
+    defaultSessionId        String?
+    tokens                  OAuthToken[]
+    chatSessions            ChatSession[]
+    webhookSubscriptions    WebhookSubscription[]
+    createdAt               DateTime              @default(now()) @map("created_at")
+    updatedAt               DateTime              @updatedAt @map("updated_at")
+  
+    @@map("users")
+  }
+  
+  model ChatSession {
+    id        String        @id @default(uuid())
+    userId    String
+    user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+    title     String?
+    isPinned  Boolean       @default(false)
+    summary   String?
+    messages  ChatMessage[]
+    createdAt DateTime      @default(now())
+    updatedAt DateTime      @updatedAt
+  
+    @@map("chat_sessions")
+  }
+  
+  model ChatMessage {
+    id        String      @id @default(uuid())
+    sessionId String
+    sender    String
+    content   String      @db.Text
+    metadata  Json?
+    timestamp DateTime    @default(now())
+    session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+    @@map("chat_messages")
+  }
+  
+  model OAuthToken {
+    id           String   @id @default(uuid())
+    userId       String
+    provider     String
+    accessToken  String   @db.Text
+    refreshToken String?  @db.Text
+    expiresAt    DateTime?
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+    user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+    @@unique([userId, provider])
+    @@map("oauth_tokens")
+  }
+  
+  model WebhookSubscription {
+    id         String         @id @default(uuid())
+    userId     String
+    user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+    provider   String         // 'google', 'slack', 'notion', etc.
+    resourceId String         // Calendar ID, channel ID, etc.
+    callbackUrl String        // Our endpoint URL
+    providerId String?        // ID from the provider's webhook system
+    secret     String?        // For HMAC verification
+    expiresAt  DateTime?
+    events     WebhookEvent[]
+    createdAt  DateTime       @default(now())
+    updatedAt  DateTime       @updatedAt
+  
+    @@unique([userId, provider, resourceId])
+    @@map("webhook_subscriptions")
+  }
+  
+  model WebhookEvent {
+    id             String              @id @default(uuid())
+    subscriptionId String
+    subscription   WebhookSubscription @relation(fields: [subscriptionId], references: [id])
+    provider       String
+    eventType      String
+    payload        Json
+    processed      Boolean             @default(false)
+    createdAt      DateTime            @default(now())
+  
+    @@index([processed])
+    @@map("webhook_events")
+  }

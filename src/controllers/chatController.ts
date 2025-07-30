@@ -1,37 +1,36 @@
-import { Context } from "hono";
-import { PrismaClient } from '@prisma/client';
-import { searchMemory, storeMemory } from "../services/memoryService";
-import { generateAIResponse } from "../services/aiService";
+import { Context } from 'hono'
+import { PrismaClient } from '@prisma/client'
+import { searchMemory, storeMemory } from '../services/memoryService.js'
+import { generateAIResponse } from '../services/aiService.js'
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient()
 
 export const createChatSession = async (c: Context) => {
   try {
-    const { user } = c.get('user');
-    const body = await c.req.json();
-    const { title } = body;
+    const user = c.get('user')
+    const body = await c.req.json()
+    const { title } = body
 
     const session = await prisma.chatSession.create({
       data: {
         title: title || `New Session ${new Date().toLocaleDateString()}`,
         userId: user.id
       }
-    });
+    })
 
-    return c.json(session, 201);
-
+    return c.json(session, 201)
   } catch (error) {
-    console.error('Error creating chat:', error);
-    return c.json({ error: 'Internal server error' }, 500);
+    console.error('Error creating chat:', error)
+    return c.json({ error: 'Internal server error' }, 500)
   }
 }
 
 export const sendMessageToSession = async (c: Context) => {
   try {
-    const { id: sessionId } = c.req.param();
-    const body = await c.req.json();
-    const { content } = body;
-    const user = c.get('user');
+    const sessionId = c.req.param('id')
+    const body = await c.req.json()
+    const { content } = body
+    const user = c.get('user')
 
     const userMessage = await prisma.chatMessage.create({
       data: {
@@ -39,20 +38,20 @@ export const sendMessageToSession = async (c: Context) => {
         sender: 'user',
         sessionId
       }
-    });
+    })
 
-    const memories = await searchMemory(user.id, content);
-    const memoryContext = memories.matches?.map(m => m.metadata?.text).join('\n') || '';
+    const memories = await searchMemory(user.id, content)
+    const memoryContext = memories.matches?.map(m => m.metadata?.text).join('\n') || ''
 
     const messages = [
-      ...(memoryContext ? [{ role: 'system', content: `Relevant context:\n${memoryContext}` }] : []),
-      { role: 'user', content }
-    ];
+      ...(memoryContext ? [{ role: 'system' as const, content: `Relevant context:\n${memoryContext}` }] : []),
+      { role: 'user' as const, content }
+    ]
 
-    const aiResponse = await generateAIResponse(messages, sessionId);
+    const aiResponse = await generateAIResponse(messages, sessionId)
 
     if (!aiResponse || typeof aiResponse !== 'string') {
-      throw new Error('AI response is invalid or empty');
+      throw new Error('AI response is invalid or empty')
     }
 
     const serializedMetadata = {
@@ -61,7 +60,7 @@ export const sendMessageToSession = async (c: Context) => {
         score: match.score,
         metadata: match.metadata
       })) : []
-    };
+    }
 
     const assistantMessage = await prisma.chatMessage.create({
       data: {
@@ -70,21 +69,20 @@ export const sendMessageToSession = async (c: Context) => {
         sessionId,
         metadata: serializedMetadata
       }
-    });
+    })
 
     if (shouldStoreMemory(aiResponse)) {
-        await storeMemory(user.id, aiResponse, { sessionId });
-      }
+      await storeMemory(user.id, aiResponse, { sessionId })
+    }
 
-    return c.json({ userMessage, assistantMessage }, 201);
-
+    return c.json({ userMessage, assistantMessage }, 201)
   } catch (error) {
-    console.error('Error sending message:', error);
-    return c.json({ error: 'Internal server error' }, 500);
+    console.error('Error sending message:', error)
+    return c.json({ error: 'Internal server error' }, 500)
   }
 }
 
 function shouldStoreMemory(text: string): boolean {
-  const importantKeywords = ['meeting', 'reminder', 'important', 'note', 'action item'];
-  return importantKeywords.some(keyword => text.toLowerCase().includes(keyword));
+  const importantKeywords = ['meeting', 'reminder', 'important', 'note', 'action item']
+  return importantKeywords.some(keyword => text.toLowerCase().includes(keyword))
 }

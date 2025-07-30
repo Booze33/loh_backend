@@ -3,7 +3,6 @@ import OpenAI from 'openai';
 import { Groq } from 'groq-sdk';
 
 const prisma = new PrismaClient();
-
 const openai = new OpenAI({ apiKey: process.env.OPENAI_KEY! });
 const groq = new Groq({ apiKey: process.env.GROQ_KEY! });
 
@@ -34,7 +33,6 @@ export const generateAIResponse = async (messages: AIMessage[], sessionId: strin
     ];
 
     const provider = process.env.LLM_PROVIDER === 'groq' ? groq : openai;
-    
     const response = await provider.chat.completions.create({
       model: process.env.LLM_MODEL || 'gpt-4-turbo',
       messages: allMessages,

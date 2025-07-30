@@ -4,7 +4,6 @@ import { PrismaClient } from '@prisma/client';
 import type { DecodedToken } from '../types/auth/authTypes.ts';
 
 const { TokenExpiredError, JsonWebTokenError } = jwt;
-
 const prisma = new PrismaClient();
 
 export const authMiddleware: MiddlewareHandler = async (c: Context, next: Next) => {

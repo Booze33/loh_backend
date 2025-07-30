@@ -30,30 +30,10 @@ export const getRecentEmail = async (c: Context) => {
       userId: 'me',
       maxResults: Number(maxResults)
     });
-      const emails: Email[] = await Promise.all(
-        res.data.messages?.map(async (m) => {
-          const msg = await gmailClient.users.messages.get({
-          userId: 'me',
-          id: m.id!
-          });
 
-          const payload = msg.data.payload!;
-          const headers = payload.headers!;
-          const subject = headers.find(h => h.name === 'Subject')?.value || 'No Subject';
-          const from = headers.find(h => h.name === 'From')?.value || 'Unknown Sender';
-        
-          return {
-            id: m.id!,
-            subject,
-            from,
-            snippet: msg.data.snippet!,
-            date: headers.find(h => h.name === 'Date')?.value || ''
-          };
-        }) || []
-      );
-    return c.json({ emails });
+    return c.json({ message: 'Email sent', id: res.data.id })
   } catch (error) {
-    console.error('Gmail error:', error);
+    console.error('Send email error:', error);
     return c.json({ error: 'Failed to fetch emails' }, 500);
   }
 }

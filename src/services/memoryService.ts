@@ -3,7 +3,6 @@ import { OpenAIEmbeddings } from "@langchain/openai";
 import { Pinecone } from '@pinecone-database/pinecone';
 
 const prisma = new PrismaClient();
-
 const pinecone = new Pinecone({ apiKey: process.env.PINECONE_KEY! });
 const embeddings = new OpenAIEmbeddings({ openAIApiKey: process.env.OPENAI_KEY! });
 
