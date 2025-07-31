@@ -1,17 +1,8 @@
 import 'dotenv/config'
-import app from './app.js'
+import app from './app'
 import { serve } from '@hono/node-server'
-import { processWebhookEvents } from './workers/webhookProcessor.js'
-import { createServer } from 'http'
 
 const runningPort = parseInt(process.env.PORT || '3000')
-
-setInterval(() => {
-  processWebhookEvents().catch(console.error)
-}, 30000)
-
-const server = createServer(app.fetch);
-initWebSocketServer(server);
 
 serve({
   fetch: app.fetch,

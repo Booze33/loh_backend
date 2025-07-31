@@ -1,5 +1,5 @@
-import { prisma } from '../utils/prisma.js'
-import { sendNotification } from '../services/notificationService.js'
+import { prisma } from '../utils/prisma'
+import { sendNotification } from '../services/notificationService'
 
 export async function processWebhookEvents() {
   const unprocessedEvents = await prisma.webhookEvent.findMany({

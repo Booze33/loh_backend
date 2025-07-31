@@ -1,9 +1,7 @@
 import { Context } from 'hono'
-import { PrismaClient } from '@prisma/client'
-import { searchMemory, storeMemory } from '../services/memoryService.js'
-import { generateAIResponse } from '../services/aiService.js'
-
-const prisma = new PrismaClient()
+import { prisma } from '../utils/prisma';
+import { searchMemory, storeMemory } from '../services/memoryService'
+import { generateAIResponse } from '../services/aiService'
 
 export const createChatSession = async (c: Context) => {
   try {

@@ -1,8 +1,7 @@
-import { PrismaClient } from '@prisma/client';
 import OpenAI from 'openai';
 import { Groq } from 'groq-sdk';
+import { prisma } from '../utils/prisma';
 
-const prisma = new PrismaClient();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_KEY! });
 const groq = new Groq({ apiKey: process.env.GROQ_KEY! });
 
@@ -32,14 +31,26 @@ export const generateAIResponse = async (messages: AIMessage[], sessionId: strin
       ...messages.filter(m => m.role !== 'system')
     ];
 
-    const provider = process.env.LLM_PROVIDER === 'groq' ? groq : openai;
-    const response = await provider.chat.completions.create({
-      model: process.env.LLM_MODEL || 'gpt-4-turbo',
-      messages: allMessages,
-      temperature: 0.7
-    });
+    let response;
+    let aiResponse;
 
-    const aiResponse = response.choices[0]?.message?.content;
+    if (process.env.LLM_PROVIDER === 'groq') {
+      response = await groq.chat.completions.create({
+        model: process.env.LLM_MODEL || 'gpt-4-turbo',
+        messages: allMessages,
+        temperature: 0.7
+      });
+
+      aiResponse = response.choices[0]?.message?.content;
+    } else {
+      response = await openai.responses.create({
+        model: process.env.LLM_MODEL || 'gpt-4-turbo',
+        input: allMessages,
+        temperature: 0.7
+      });
+
+      aiResponse = response.output_text;
+    }
     
     if (!aiResponse) {
       throw new Error('No response received from AI provider');

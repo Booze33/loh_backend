@@ -1,7 +1,7 @@
 import { WebClient } from '@slack/web-api'
 import { Context } from 'hono'
-import { prisma } from '../../utils/prisma.js'
-import { SlackMessage } from '../../types/integrations/integrationTypes.js'
+import { prisma } from '../../utils/prisma'
+import { SlackMessage } from '../../types/intergrations/integrationTypes.ts'
 
 export const sendSlackMessage = async (c: Context) => {
   try {
@@ -15,7 +15,6 @@ export const sendSlackMessage = async (c: Context) => {
     if (!token) return c.json({ error: 'Slack not connected' }, 401)
 
     const client = new WebClient(token.accessToken)
-
     const result = await client.chat.postMessage({
       channel,
       text,

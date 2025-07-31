@@ -1,7 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, User as PrismaUser } from '@prisma/client';
 import type { Context } from 'hono';
 import nodemailer from "nodemailer";
 import { OAuth2Client } from 'google-auth-library';
@@ -79,7 +79,7 @@ export const register = async (c: Context) => {
       }
       },
       include: { chatSessions: true }
-    });
+    }) as PrismaUser & { chatSessions: { id: string }[] };
 
     await sendVerificationEmail(email, verificationCode);
 
