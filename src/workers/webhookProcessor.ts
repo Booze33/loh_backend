@@ -45,16 +45,17 @@ async function handleGoogleEvent(event: any) {
 }
 
 async function handleSlackEvent(event: any) {
-  const payload = event.payload
+  const payload = event.payload;
   
   if (payload.event?.type === 'message') {
     await sendNotification(event.subscription.userId, {
-      title: 'New Slack message',
-      body: `New message in ${payload.event.channel}`,
+      title: `New message in ${payload.event.channel}`,
+      body: payload.event.text || 'No content',
       data: {
+        type: 'slack_message',
         channel: payload.event.channel,
-        text: payload.event.text
+        timestamp: payload.event.ts
       }
-    })
+    });
   }
 }
