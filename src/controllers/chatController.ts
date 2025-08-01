@@ -23,6 +23,24 @@ export const createChatSession = async (c: Context) => {
   }
 }
 
+export const getChatSessions = async (c: Context) => {
+  try {
+    const user = c.get('user')
+    const sessions = await prisma.chatSession.findMany({
+      where: {
+        userId: user.id
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    })
+    return c.json(sessions);
+  } catch (error) {
+    console.error('Error getting chat sessions:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+}
+
 export const sendMessageToSession = async (c: Context) => {
   try {
     const sessionId = c.req.param('id')
