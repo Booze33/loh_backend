@@ -224,7 +224,8 @@ export const googleRegister = async (c: Context) => {
         id: user.id,
         name: user.name,
         email: user.email,
-        avatar: user.avatar
+        avatar: user.avatar,
+        defaultSessionId: user.chatSessions[0].id
       }
     }, 201);
 
