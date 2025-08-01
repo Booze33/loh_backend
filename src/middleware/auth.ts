@@ -50,6 +50,7 @@ export const authMiddleware: MiddlewareHandler = async (c: Context, next: Next) 
         name: true,
         email: true,
         avatar: true,
+        chatSessions: true
       },
     });
 
