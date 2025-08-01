@@ -7,13 +7,14 @@ import integrationRoutes from './routes/integrationRoutes';
 const app = new Hono();
 
 app.use('*', async (c, next) => {
-  c.header('Content-Security-Policy', "default-src 'self'");
+  c.header('Content-Security-Policy', "default-src 'self' https://accounts.google.com; frame-src 'self' https://accounts.google.com");
   c.header('X-Content-Type-Options', 'nosniff');
+  c.header('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
   await next();
 });
 
 app.use('*', cors({
-  origin: process.env.FRONTEND_URLS?.split(',') || ['http://localhost:3000'],
+  origin: process.env.FRONTEND_URL?.split(',') || ['http://localhost:3000'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
   exposeHeaders: ['Content-Length', 'X-RateLimit-Limit', 'X-RateLimit-Remaining'],
