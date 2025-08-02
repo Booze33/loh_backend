@@ -220,13 +220,7 @@ export const googleRegister = async (c: Context) => {
     return c.json({
       message: "User registered successfully via Google",
       token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        avatar: user.avatar,
-        defaultSessionId: user.chatSessions[0].id
-      }
+      user
     }, 201);
 
   } catch (error) {
