@@ -7,11 +7,12 @@ export const createChatSession = async (c: Context) => {
   try {
     const user = c.get('user')
     const body = await c.req.json()
-    const { title } = body
+    const { title, chatHandle } = body
 
     const session = await prisma.chatSession.create({
       data: {
         title: title || `New Session ${new Date().toLocaleDateString()}`,
+        chatHandle,
         userId: user.id
       }
     })
