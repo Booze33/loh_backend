@@ -34,7 +34,7 @@ generator client {
     userId    String
     user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
     title     String?
-    chathandle     String?
+    chatHandle     String?
     messages  ChatMessage[]
     isPinned  Boolean       @default(false)
     createdAt DateTime      @default(now())
