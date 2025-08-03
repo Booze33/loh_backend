@@ -38,6 +38,8 @@ export interface ChatMessage {
 export interface ChatSession {
   id: string;
   title: string;
+  chatHandle: string;
+  messages: ChatMessage[];
   userId: string;
   isPinned?: boolean;
   summary?: string;
