@@ -42,6 +42,24 @@ export const getChatSessions = async (c: Context) => {
   }
 }
 
+export const getChatMessages = async (c: Context) => {
+  try {
+    const sessionId = c.req.param('id')
+    const messages = await prisma.chatMessage.findMany({
+      where: {
+        sessionId
+      },
+      orderBy: {
+        timestamp: 'asc'
+      }
+    })
+    return c.json(messages);
+  } catch (error) {
+    console.error('Error getting chat messages:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+}
+
 export const sendMessageToSession = async (c: Context) => {
   try {
     const sessionId = c.req.param('id')
@@ -49,54 +67,78 @@ export const sendMessageToSession = async (c: Context) => {
     const { content } = body
     const user = c.get('user')
 
-    const userMessage = await prisma.chatMessage.create({
-      data: {
-        content,
-        sender: 'user',
-        sessionId
-      }
-    })
+    const [userMessage, assistantMessage] = await Promise.all([
+      prisma.chatMessage.create({
+        data: {
+          content,
+          sender: 'user',
+          sessionId
+        }
+      }),
 
-    const memories = await searchMemory(user.id, content)
-    const memoryContext = memories.matches?.map(m => m.metadata?.text).join('\n') || ''
-
-    const messages = [
-      ...(memoryContext ? [{ role: 'system' as const, content: `Relevant context:\n${memoryContext}` }] : []),
-      { role: 'user' as const, content }
-    ]
-
-    const aiResponse = await generateAIResponse(messages, sessionId)
-
-    if (!aiResponse || typeof aiResponse !== 'string') {
-      throw new Error('AI response is invalid or empty')
-    }
-
-    const serializedMetadata = {
-      memories: memories.matches ? memories.matches.map(match => ({
-        id: match.id,
-        score: match.score,
-        metadata: match.metadata
-      })) : []
-    }
-
-    const assistantMessage = await prisma.chatMessage.create({
-      data: {
-        content: aiResponse,
-        sender: 'assistant',
-        sessionId,
-        metadata: serializedMetadata
-      }
-    })
-
-    if (shouldStoreMemory(aiResponse)) {
-      await storeMemory(user.id, aiResponse, { sessionId })
-    }
+      processAIResponse(user.id, content, sessionId)
+    ])
 
     return c.json({ userMessage, assistantMessage }, 201)
   } catch (error) {
     console.error('Error sending message:', error)
     return c.json({ error: 'Internal server error' }, 500)
   }
+}
+
+const processAIResponse = async (
+  userId: string, 
+  content: string, 
+  sessionId: string
+): Promise<any> => {
+  const memories = await searchMemory(userId, content)
+  const memoryContext = memories.matches?.map(m => m.metadata?.text).join('\n') || ''
+
+  const messages = [
+    ...(memoryContext ? [{ role: 'system' as const, content: `Relevant context:\n${memoryContext}` }] : []),
+    { role: 'user' as const, content }
+  ]
+
+  const aiResponse = await generateAIResponse(messages, sessionId)
+
+  if (!aiResponse || typeof aiResponse !== 'string') {
+    throw new Error('AI response is invalid or empty')
+  }
+
+  const assistantMessage = await saveAIResponse(userId, aiResponse, sessionId, memories)
+  
+  return assistantMessage
+}
+
+const saveAIResponse = async (
+  userId: string,
+  aiResponse: string,
+  sessionId: string,
+  memories: any
+): Promise<any> => {
+  const serializedMetadata = {
+    memories: memories.matches ? memories.matches.map((match: { id: string; score: number; metadata: any }) => ({
+      id: match.id,
+      score: match.score,
+      metadata: match.metadata
+    })) : []
+  }
+
+  const [assistantMessage] = await Promise.all([
+    prisma.chatMessage.create({
+      data: {
+        content: aiResponse,
+        sender: 'assistant',
+        sessionId,
+        metadata: serializedMetadata
+      }
+    }),
+    shouldStoreMemory(aiResponse) 
+      ? storeMemory(userId, aiResponse, { sessionId })
+      : Promise.resolve()
+  ])
+
+  return assistantMessage
 }
 
 function shouldStoreMemory(text: string): boolean {
