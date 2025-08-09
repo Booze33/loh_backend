@@ -188,25 +188,80 @@ export const googleRegister = async (c: Context) => {
     });
 
     if (!user) {
-      user = await prisma.user.create({
-        data: {
-          name: name || "Google User",
-          email,
-          googleId,
-          avatar: picture,
-          isEmailVerified: true,
-          password: null,
-          chatSessions: {
-            create: { title: "First Session" }
-          }
-        },
+      user = await prisma.$transaction(async (tx) => {
+        const newUser = await tx.user.create({
+          data: {
+            name: name || "Google User",
+            email,
+            googleId,
+            avatar: picture,
+            isEmailVerified: true,
+            password: null,
+          },
+        });
+
+        await tx.oAuthToken.create({
+          data: {
+            userId: newUser.id,
+            provider: "google",
+            accessToken: googleToken,
+            refreshToken: null,
+            expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+          },
+        });
+
+        return newUser;
       });
     } else if (!user.googleId) {
-      user = await prisma.user.update({
-        where: { email },
-        data: {
-          googleId,
-          avatar: picture,
+      user = await prisma.$transaction(async (tx) => {
+        const updatedUser = await tx.user.update({
+          where: { email },
+          data: {
+            googleId,
+            avatar: picture,
+          },
+        });
+
+        await tx.oAuthToken.upsert({
+          where: {
+            userId_provider: {
+              userId: updatedUser.id,
+              provider: "google",
+            },
+          },
+          update: {
+            accessToken: googleToken,
+            expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+          },
+          create: {
+            userId: updatedUser.id,
+            provider: "google",
+            accessToken: googleToken,
+            refreshToken: null,
+            expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+          },
+        });
+
+        return updatedUser;
+      });
+    } else {
+      await prisma.oAuthToken.upsert({
+        where: {
+          userId_provider: {
+            userId: user.id,
+            provider: "google",
+          },
+        },
+        update: {
+          accessToken: googleToken,
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        },
+        create: {
+          userId: user.id,
+          provider: "google",
+          accessToken: googleToken,
+          refreshToken: null,
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
         },
       });
     }
@@ -530,9 +585,16 @@ export const slackAuthCallback = async (c: Context) => {
       }, 401);
     }
 
+    const accessToken = tokenData.authed_user.access_token;
+    const refreshToken = tokenData.authed_user.refresh_token || null;
+
+    const expiresAt = tokenData.authed_user.expires_in 
+      ? new Date(Date.now() + tokenData.authed_user.expires_in * 1000)
+      : null;
+
     const identityResponse = await fetch('https://slack.com/api/users.identity', {
       headers: {
-        Authorization: `Bearer ${tokenData.authed_user.access_token}`,
+        Authorization: `Bearer ${accessToken}`,
       },
     });
 
@@ -557,22 +619,82 @@ export const slackAuthCallback = async (c: Context) => {
     });
 
     if (!user) {
-      user = await prisma.user.create({
-        data: {
-          name: name || 'Slack User',
-          email,
-          slackId,
-          avatar,
-          isEmailVerified: true,
-          password: null,
-        },
+      user = await prisma.$transaction(async (tx) => {
+        const newUser = await tx.user.create({
+          data: {
+            name: name || 'Slack User',
+            email,
+            slackId,
+            avatar,
+            isEmailVerified: true,
+            password: null,
+          },
+        });
+
+        await tx.oAuthToken.create({
+          data: {
+            userId: newUser.id,
+            provider: 'slack',
+            accessToken,
+            refreshToken,
+            expiresAt,
+          },
+        });
+
+        return newUser;
       });
     } else if (!user.slackId) {
-      user = await prisma.user.update({
-        where: { email },
-        data: {
-          slackId,
-          avatar,
+      user = await prisma.$transaction(async (tx) => {
+        const updatedUser = await tx.user.update({
+          where: { email },
+          data: {
+            slackId,
+            avatar,
+          },
+        });
+
+        await tx.oAuthToken.upsert({
+          where: {
+            userId_provider: {
+              userId: updatedUser.id,
+              provider: 'slack',
+            },
+          },
+          update: {
+            accessToken,
+            refreshToken,
+            expiresAt,
+          },
+          create: {
+            userId: updatedUser.id,
+            provider: 'slack',
+            accessToken,
+            refreshToken,
+            expiresAt,
+          },
+        });
+
+        return updatedUser;
+      });
+    } else {
+      await prisma.oAuthToken.upsert({
+        where: {
+          userId_provider: {
+            userId: user.id,
+            provider: 'slack',
+          },
+        },
+        update: {
+          accessToken,
+          refreshToken,
+          expiresAt,
+        },
+        create: {
+          userId: user.id,
+          provider: 'slack',
+          accessToken,
+          refreshToken,
+          expiresAt,
         },
       });
     }

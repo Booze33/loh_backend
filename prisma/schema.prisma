@@ -23,6 +23,9 @@ generator client {
     defaultSessionId        String?
     tokens                  OAuthToken[]
     chatSessions            ChatSession[]
+    tasks                   Task[]
+    reminders               Reminder[]
+    actionLogs              ActionLog[]
     createdAt               DateTime              @default(now()) @map("created_at")
     updatedAt               DateTime              @updatedAt @map("updated_at")
   
@@ -69,3 +72,45 @@ generator client {
     @@unique([userId, provider])
     @@map("oauth_tokens")
   }
+
+  model Task {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  dueDate     DateTime?
+  priority    String   @default("medium")
+  status      String   @default("pending")
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("tasks")
+}
+
+model Reminder {
+  id           String   @id @default(uuid())
+  message      String
+  reminderTime DateTime
+  type         String   @default("general")
+  status       String   @default("active")
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("reminders")
+}
+
+model ActionLog {
+  id         String   @id @default(uuid())
+  actionType String
+  status     String
+  payload    Json
+  error      String?
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  timestamp  DateTime @default(now()) @map("created_at")
+
+  @@map("action_logs")
+}

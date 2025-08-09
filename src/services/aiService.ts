@@ -12,6 +12,18 @@ interface AIMessage {
 
 export const generateAIResponse = async (messages: AIMessage[], sessionId: string): Promise<string> => {
   try {
+    const systemPrompt = `You are a helpful AI assistant that can perform actions for users.
+      When you need to perform an action, use this format:
+      [ACTION:type]{"key": "value"}[/ACTION]
+
+      Available actions:
+      - slack: [ACTION:slack]{"channel": "#general", "message": "Hello!"}[/ACTION]
+      - gmail: [ACTION:gmail]{"to": "user@example.com", "subject": "Subject", "body": "Message body"}[/ACTION]
+      - task: [ACTION:task]{"title": "Task name", "description": "Task description", "priority": "high"}[/ACTION]
+      - reminder: [ACTION:reminder]{"message": "Reminder text", "reminderTime": "2024-01-01T10:00:00Z"}[/ACTION]
+      - calendar: [ACTION:calendar]{"title": "Meeting", "startTime": "2024-01-01T10:00:00Z", "endTime": "2024-01-01T11:00:00Z"}[/ACTION]
+      Always provide helpful responses and execute actions when requested.`;
+
     const session = await prisma.chatSession.findUnique({
       where: { id: sessionId },
       include: { messages: { orderBy: { timestamp: 'asc' }, take: 20 } }
@@ -25,7 +37,7 @@ export const generateAIResponse = async (messages: AIMessage[], sessionId: strin
     const allMessages: AIMessage[] = [
       {
         role: 'system',
-        content: `You're an AI productivity assistant. Current time: ${new Date().toISOString()}`
+        content: systemPrompt
       },
       ...messageHistory,
       ...messages.filter(m => m.role !== 'system')

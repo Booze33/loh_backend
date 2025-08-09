@@ -55,16 +55,13 @@ export const getRecentEmail = async (c: Context) => {
   }
 }
 
-export const sendEmail = async (c: Context) => {
+export const sendEmail = async (userId: string, to: string, subject: string, body: string, options: { cc?: string; bcc?: string } = {}): Promise<{ messageId: string }> => {
   try {
-    const user = c.get('user');
-    const { to, subject, body } = await c.req.json();
-
     const token = await prisma.oAuthToken.findFirst({
-      where: { userId: user.id, provider: 'google' }
+      where: { userId, provider: 'google' }
     });
 
-    if (!token) return c.json({ error: 'Google not connected' }, 401);
+    if (!token) throw new Error('Google not connected');
 
     const auth = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
@@ -80,6 +77,8 @@ export const sendEmail = async (c: Context) => {
 
     const rawMessage = [
       `To: ${to}`,
+      ...(options.cc ? [`Cc: ${options.cc}`] : []),
+      ...(options.bcc ? [`Bcc: ${options.bcc}`] : []),
       'Content-Type: text/html; charset=utf-8',
       'MIME-Version: 1.0',
       `Subject: ${subject}`,
@@ -100,9 +99,22 @@ export const sendEmail = async (c: Context) => {
       }
     });
 
-    return c.json({ message: 'Email sent', id: res.data.id });
+    return { messageId: res.data.id! };
+  } catch (error) {
+    console.error('Send email error:', error);
+    throw new Error('Failed to send email');
+  }
+}
+
+export const sendEmailEndpoint = async (c: Context) => {
+  try {
+    const user = c.get('user');
+    const { to, subject, body, cc, bcc } = await c.req.json();
+
+    const result = await sendEmail(user.id, to, subject, body, { cc, bcc });
+    return c.json({ message: 'Email sent', id: result.messageId });
   } catch (error) {
     console.error('Send email error:', error);
     return c.json({ error: 'Failed to send email' }, 500);
   }
-}
+};

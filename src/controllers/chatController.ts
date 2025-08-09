@@ -1,6 +1,7 @@
 import { Context } from 'hono'
 import { prisma } from '../utils/prisma';
 import { searchMemory, storeMemory } from '../services/memoryService'
+import { executeAction } from '../services/actionService';
 import { generateAIResponse } from '../services/aiService'
 
 export const createChatSession = async (c: Context) => {
@@ -67,26 +68,57 @@ export const sendMessageToSession = async (c: Context) => {
     const { content } = body
     const user = c.get('user')
 
-    const [userMessage, assistantMessage] = await Promise.all([
-      prisma.chatMessage.create({
-        data: {
-          content,
-          sender: 'user',
-          sessionId
-        }
-      }),
+    const userMessage = await prisma.chatMessage.create({
+      data: {
+        content,
+        sender: 'user',
+        sessionId
+      }
+    })
 
-      processAIResponse(user.id, content, sessionId)
-    ])
+    const { assistantMessage, executedActions } = await processMessageFlow(
+      user.id,
+      content,
+      sessionId
+    )
 
-    return c.json({ userMessage, assistantMessage }, 201)
+    return c.json({ userMessage, assistantMessage, executedActions: executedActions || [] }, 201)
   } catch (error) {
     console.error('Error sending message:', error)
     return c.json({ error: 'Internal server error' }, 500)
   }
 }
 
-const processAIResponse = async (
+const processMessageFlow = async ( userId: string, content: string, sessionId: string ): Promise<{ assistantMessage: any; executedActions?: any[] }> => {
+  try {
+    const aiResponse = await generateInitialAIResponse(userId, content, sessionId);
+    const detectedActions = await detectActionsInResponse(aiResponse);
+
+    let executedActions: any[] = []
+    let finalResponse = aiResponse
+
+    if (detectedActions.length > 0) {
+      const actionResults = await executeDetectedActions(detectedActions, userId)
+      executedActions = actionResults.executedActions
+
+      finalResponse = await incorporateActionResults(aiResponse, actionResults)
+    }
+
+    const assistantMessage = await saveAssistantMessage(
+      userId, 
+      finalResponse, 
+      sessionId, 
+      executedActions
+    )
+    
+    return { assistantMessage, executedActions }
+  } catch (error) {
+    console.error('Error in message flow:', error)
+    throw error
+  }
+}
+
+const generateInitialAIResponse = async (
   userId: string, 
   content: string, 
   sessionId: string
@@ -105,36 +137,111 @@ const processAIResponse = async (
     throw new Error('AI response is invalid or empty')
   }
 
-  const assistantMessage = await saveAIResponse(userId, aiResponse, sessionId, memories)
-  
-  return assistantMessage
+  return aiResponse;
 }
 
-const saveAIResponse = async (
+const detectActionsInResponse = async (aiResponse: string): Promise<any> => {
+  const actionPatterns = [
+    /create.*(?:meeting|appointment|event)/i,
+    /send.*(?:email|message)/i,
+    /schedule.*(?:call|meeting)/i,
+    /add.*(?:task|reminder|note)/i,
+    /search.*(?:calendar|contacts|files)/i,
+    /update.*(?:status|profile)/i
+  ]
+
+  const detectedActions = [];
+
+  for (const pattern of actionPatterns) {
+    if (pattern.test(aiResponse)) {
+      detectedActions.push({
+        type: 'detected',
+        pattern: pattern.source,
+        content: aiResponse,
+        confidence: 0.8
+      })
+    }
+  }
+}
+
+const executeDetectedActions = async (
+  detectedActions: any[],
+  userId: string
+): Promise<{ executedActions: any[]; results: any[] }> => {
+  const executedActions = []
+  const results = []
+
+  for (const action of detectedActions) {
+    try {
+      const actionResult = await executeAction(action.content, userId)
+      
+      executedActions.push({
+        ...action,
+        status: 'executed',
+        timestamp: new Date().toISOString()
+      })
+      
+      results.push(actionResult)
+    } catch (error) {
+      console.error('Error executing action:', error)
+      executedActions.push({
+        ...action,
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      })
+    }
+  }
+
+  return { executedActions, results }
+}
+
+const incorporateActionResults = async (
+  originalResponse: string,
+  actionResults: { executedActions: any[]; results: any[] }
+): Promise<string> => {
+  const successfulActions = actionResults.executedActions.filter(a => a.status === 'executed')
+  
+  if (successfulActions.length > 0) {
+    const actionSummary = successfulActions.map(action => 
+      `✓ Action completed: ${action.type}`
+    ).join('\n')
+    
+    return `${originalResponse}\n\n${actionSummary}`
+  }
+  
+  return originalResponse
+}
+
+const saveAssistantMessage = async (
   userId: string,
-  aiResponse: string,
+  finalResponse: string,
   sessionId: string,
-  memories: any
+  executedActions: any[]
 ): Promise<any> => {
+  const memories = await searchMemory(userId, finalResponse)
+  
   const serializedMetadata = {
-    memories: memories.matches ? memories.matches.map((match: { id: string; score: number; metadata: any }) => ({
+    memories: memories.matches ? memories.matches.map((match) => ({
       id: match.id,
-      score: match.score,
+      score: match.score ?? 0,
       metadata: match.metadata
-    })) : []
+    })) : [],
+    executedActions: executedActions || []
   }
 
   const [assistantMessage] = await Promise.all([
     prisma.chatMessage.create({
       data: {
-        content: aiResponse,
+        content: finalResponse,
         sender: 'assistant',
         sessionId,
         metadata: serializedMetadata
       }
     }),
-    shouldStoreMemory(aiResponse) 
-      ? storeMemory(userId, aiResponse, { sessionId })
+
+    shouldStoreMemory(finalResponse) 
+      ? storeMemory(userId, finalResponse, { sessionId })
       : Promise.resolve()
   ])
 

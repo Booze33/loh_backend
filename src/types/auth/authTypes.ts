@@ -26,6 +26,14 @@ export interface DecodedToken {
   exp: number;
 }
 
+export interface AuthenticatedUser {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  chatSessions?: { id: string }[];
+}
+
 export interface ChatMessage {
   id?: string;
   sessionId: string;
